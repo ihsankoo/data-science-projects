@@ -1,2 +1,2 @@
 # stats
-statistics with numpy, pandas, scipy, seaborn
+statistics with numpy, pandas, scipy, seaborn.
