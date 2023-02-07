@@ -1,0 +1,11 @@
+Exploratory Data Analysis: Predicting Income Levels of US Citizens
+
+As a data analyst, I was tasked with analyzing US citizens by income levels and preparing a large dataset to create a predictive model. My objective was to understand the characteristics that influenced an individual's income and use this information to make predictions.
+
+To accomplish this, I conducted an extensive exploratory data analysis to identify patterns and relationships in the data. I utilized a variety of data visualization techniques to uncover insights and identified several key variables that had a significant impact on income levels.
+
+Next, I prepared the data by cleaning and transforming it to ensure its suitability for modeling. This involved handling missing values, encoding categorical variables, and scaling continuous variables.
+
+Finally, the data has been succesfully prepared to use in machine learning algorithms to build a predictive model that could accurately predict the income levels of individuals based on their characteristics.
+
+The results of this project provided valuable insights into the factors that influence income levels and demonstrated the potential for using predictive modeling to make informed decisions
