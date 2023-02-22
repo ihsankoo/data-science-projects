@@ -94,7 +94,7 @@ FROM e_commerce_data
 WHERE Prod_ID IN ('Prod_11', 'Prod_14')
 GROUP BY Cust_ID
 HAVING COUNT(DISTINCT Prod_ID) >= 2
-ORDER BY Cust_ID
+ORDER BY Cust_ID;
 
 
 
@@ -116,6 +116,12 @@ GROUP BY Cust_ID, YEAR(Order_Date), MONTH(Order_Date)
 ORDER BY Cust_ID, Year, Month
 
 -- 3. For each visit of customers, create the next month of the visit as a separate column.
+
+SELECT Cust_ID, YEAR(Order_Date) AS Year, MONTH(Order_Date) AS Month, COUNT(Ord_ID) AS VisitCount, 
+       LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date) AS NextMonth
+FROM e_commerce_data
+GROUP BY Cust_ID, YEAR(Order_Date), MONTH(Order_Date), Order_Date
+ORDER BY Cust_ID, Year, Month
 
 
 -- 4. Calculate the monthly time gap between two consecutive visits by each customer.
@@ -139,7 +145,6 @@ GROUP BY Cust_ID, YEAR(Order_Date), MONTH(Order_Date), Order_Date
 ORDER BY Cust_ID, Year, Month
 
 
-
 -- Month-Wise Retention Rate
 
 -- Find the month by month customer retention rate since the start of the business.
@@ -148,36 +153,20 @@ ORDER BY Cust_ID, Year, Month
 -- Proceed step by step by creating “views”. You can use the view you got at the end of the Customer Segmentation section as a source.
 -- Month-Wise Retention Rate = 1.0 * Number of Customers Retained in The Current Month / Total Number of Customers in the Current Month
 
--- 1. Find the number of customers retained month-wise. (You can use time gaps)
-
-SELECT Cust_ID, YEAR(Order_Date) AS Year, MONTH(Order_Date) AS Month, COUNT(Ord_ID) AS VisitCount, 
-       DATEDIFF(MONTH, LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date), Order_Date) AS TimeGap,
-       CASE
-           WHEN DATEDIFF(MONTH, LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date), Order_Date) <= 1 THEN 'Regular'
-           WHEN DATEDIFF(MONTH, LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date), Order_Date) > 1 THEN 'Irregular'
-       END AS CustomerSegment
-FROM e_commerce_data
-WHERE DATEDIFF(MONTH, LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date), Order_Date) <= 10
-GROUP BY Cust_ID, YEAR(Order_Date), MONTH(Order_Date), Order_Date
-ORDER BY Cust_ID, Year, Month
-
-SELECT Cust_ID, YEAR(Order_Date) AS OrderYear, Lead(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date) AS NextOrderDate, 
-       DATEDIFF(MONTH, Order_Date, Lead(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date)) AS TimeGap,
-       ROW_NUMBER() OVER (PARTITION BY Cust_ID ORDER BY Order_Date) AS RowNum
-FROM e_commerce_data
-
-
--- 2. Calculate the month-wise retention rate.
-
-SELECT Cust_ID, YEAR(Order_Date) AS Year, MONTH(Order_Date) AS Month, COUNT(Ord_ID) AS VisitCount, 
-       DATEDIFF(MONTH, LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date), Order_Date) AS TimeGap,
-       CASE
-           WHEN DATEDIFF(MONTH, LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date), Order_Date) <= 1 THEN 'Regular'
-           WHEN DATEDIFF(MONTH, LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date), Order_Date) > 1 THEN 'Irregular'
-       END AS CustomerSegment,
-       1.0 * COUNT(Ord_ID) OVER (PARTITION BY YEAR(Order_Date), MONTH(Order_Date)) / COUNT(Ord_ID) OVER (PARTITION BY YEAR(Order_Date), MONTH(Order_Date) - 1) AS RetentionRate
-FROM e_commerce_data
-GROUP BY Cust_ID, YEAR(Order_Date), MONTH(Order_Date), Order_Date
-HAVING DATEDIFF(MONTH, LAG(Order_Date) OVER (PARTITION BY Cust_ID ORDER BY Order_Date), Order_Date) <= 1
-ORDER BY Cust_ID, Year, Month
-
+WITH monthly_customers AS (
+  SELECT YEAR(Order_Date) AS Year, MONTH(Order_Date) AS Month, COUNT(DISTINCT Cust_ID) AS customers
+  FROM e_commerce_data
+  GROUP BY MONTH(Order_Date), YEAR(Order_Date)
+),
+retained_customers AS (
+  SELECT YEAR(e1.Order_Date) AS Year, MONTH(e1.Order_Date) AS Month, COUNT(DISTINCT e1.Cust_ID) AS retained_customers
+  FROM e_commerce_data e1
+  JOIN e_commerce_data e2 ON e1.Cust_ID = e2.Cust_ID
+    AND YEAR(e1.Order_Date) = YEAR(e2.Order_Date)
+    AND MONTH(e1.Order_Date) = MONTH(e2.Order_Date) + 1
+  GROUP BY MONTH(e1.Order_Date), YEAR(e1.Order_Date)
+)
+SELECT mc.Year, mc.Month, 1.0 * rc.retained_customers / mc.customers AS retention_rate
+FROM monthly_customers mc
+LEFT JOIN retained_customers rc ON mc.Year = rc.Year AND mc.Month = rc.Month
+ORDER BY mc.Year, mc.Month;
